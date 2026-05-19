@@ -375,6 +375,11 @@ function renderDetail(el) {
   el.innerHTML = `
     <div class="screen-content">
 
+      <button onclick="goBack()" style="display:flex;align-items:center;gap:4px;background:none;border:none;color:var(--accent);font-size:15px;font-weight:600;padding:8px 0 4px;cursor:pointer;margin-bottom:4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Назад
+      </button>
+
       <div class="detail-before-after">
         <div class="ba-frame"
              style="background:linear-gradient(135deg,${s.beforeFrom},${s.beforeTo})">
