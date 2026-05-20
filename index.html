@@ -84,6 +84,25 @@
 
   </nav>
 
+  <!-- ── Онбординг: приветствие при первом визите ─────── -->
+  <div id="onboard-modal" class="offer-overlay onboard-overlay" style="display:none">
+    <div class="offer-card onboard-card">
+      <div class="onboard-avatar">
+        <img src="images/master.png" alt="Разиля" onerror="this.style.display='none'"/>
+      </div>
+      <div class="onboard-name">Привет!</div>
+      <div class="onboard-title">Я помогу вам записаться на наращивание ресниц</div>
+      <ul class="offer-bullets onboard-bullets">
+        <li>Смотрите фото работ и выбирайте услугу</li>
+        <li>Бронируйте удобное время онлайн</li>
+        <li>Все ваши записи — в одном месте</li>
+      </ul>
+      <button class="offer-btn" onclick="closeOnboarding()">
+        Начать →
+      </button>
+    </div>
+  </div>
+
   <!-- ── Оффер: модалка при первом открытии ────────────── -->
   <div id="offer-modal" class="offer-overlay" style="display:none">
     <div class="offer-card">
