@@ -1255,3 +1255,120 @@ html[data-theme="dark"] .ripple::after {
 }
 
 .ripple:active::after { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ОФФЕР-МОДАЛКА
+   ═══════════════════════════════════════════════════════════════════════════ */
+.offer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: offer-fade-in 280ms ease both;
+}
+
+@keyframes offer-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.offer-card {
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.20);
+  animation: offer-card-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes offer-card-in {
+  from { opacity: 0; transform: scale(0.88) translateY(16px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+.offer-emoji {
+  font-size: 52px;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.offer-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
+.offer-subtitle {
+  font-size: 14px;
+  color: var(--text-sub);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.offer-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  text-align: left;
+}
+
+.offer-bullets li {
+  font-size: 14px;
+  color: var(--text);
+  padding: 5px 0 5px 22px;
+  position: relative;
+  line-height: 1.4;
+}
+
+.offer-bullets li::before {
+  content: '•';
+  position: absolute;
+  left: 6px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.offer-btn {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 150ms, transform 120ms;
+  margin-bottom: 12px;
+}
+
+.offer-btn:active {
+  opacity: 0.85;
+  transform: scale(0.97);
+}
+
+.offer-skip {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-hint);
+  cursor: pointer;
+  padding: 6px 16px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.offer-skip:active { opacity: 0.6; }
