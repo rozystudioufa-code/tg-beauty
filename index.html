@@ -84,6 +84,27 @@
 
   </nav>
 
+  <!-- ── Оффер: модалка при первом открытии ────────────── -->
+  <div id="offer-modal" class="offer-overlay" style="display:none">
+    <div class="offer-card">
+      <div class="offer-emoji">🎁</div>
+      <div class="offer-title">Скидка 15% на первую запись</div>
+      <div class="offer-subtitle">Подпишитесь на бота — получите промокод в личное сообщение</div>
+      <ul class="offer-bullets">
+        <li>Напомним о записи за день</li>
+        <li>Первыми узнаёте о свободных окошках</li>
+        <li>Эксклюзивные акции для подписчиков</li>
+      </ul>
+      <a href="https://t.me/lashmaster_ufa_bot?start=from_app"
+         class="offer-btn"
+         target="_blank"
+         onclick="closeOffer()">
+        Получить скидку 15%
+      </a>
+      <button class="offer-skip" onclick="closeOffer()">Пропустить</button>
+    </div>
+  </div>
+
 </div><!-- /#app -->
 
 <!-- Данные -->

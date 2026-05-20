@@ -1006,4 +1006,26 @@ function iconRuble() {
 // ═══════════════════════════════════════════════════════════════════════════
 // ЗАПУСК
 // ═══════════════════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', initApp);
+// ─── Оффер-модалка + инициализация ──────────────────────────────────────────
+const OFFER_KEY = 'tg_beauty_offer_shown';
+
+function maybeShowOffer() {
+  if (localStorage.getItem(OFFER_KEY)) return;
+  const modal = document.getElementById('offer-modal');
+  if (!modal) return;
+  setTimeout(() => { modal.style.display = 'flex'; }, 800);
+}
+
+function closeOffer() {
+  localStorage.setItem(OFFER_KEY, '1');
+  const modal = document.getElementById('offer-modal');
+  if (!modal) return;
+  modal.style.transition = 'opacity 200ms ease';
+  modal.style.opacity = '0';
+  setTimeout(() => { modal.style.display = 'none'; }, 200);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initApp();
+  maybeShowOffer();
+});
