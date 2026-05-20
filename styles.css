@@ -184,6 +184,7 @@ img { display: block; max-width: 100%; }
   padding: 8px 4px;
   transition: color 180ms ease, transform 120ms ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .nav-btn svg {
@@ -216,6 +217,7 @@ img { display: block; max-width: 100%; }
   cursor: pointer;
   transition: opacity 150ms, transform 120ms;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   width: 100%;
 }
 
@@ -325,6 +327,16 @@ img { display: block; max-width: 100%; }
 
 .master-status.active .status-dot { background: var(--success); }
 
+.master-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
 /* ─── Ближайший слот ─── */
 .next-slot-card {
   background: linear-gradient(135deg, var(--accent), #1a8bc4);
@@ -400,7 +412,13 @@ img { display: block; max-width: 100%; }
 
 .work-thumb:active { transform: scale(0.94); }
 
-.work-emoji { font-size: 28px; }
+.work-emoji {
+  width: 52px;
+  height: 34px;
+  color: rgba(255,255,255,0.95);
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.3));
+}
+.work-emoji svg { width: 100%; height: 100%; }
 
 .work-name {
   font-size: 10px;
@@ -412,6 +430,30 @@ img { display: block; max-width: 100%; }
 }
 
 /* ─── Отзыв ─── */
+.btn-book-detail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 16px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: opacity 150ms, transform 120ms;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn-book-detail:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
 .review-card {
   background: var(--card-bg);
   border-radius: var(--r);
@@ -504,9 +546,12 @@ img { display: block; max-width: 100%; }
 }
 
 .service-card-emoji {
-  font-size: 48px;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.15));
+  width: 80px;
+  height: 52px;
+  color: rgba(255,255,255,0.95);
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.25));
 }
+.service-card-emoji svg { width: 100%; height: 100%; }
 
 .service-card-body {
   padding: 12px var(--p);
@@ -564,7 +609,7 @@ img { display: block; max-width: 100%; }
 }
 
 .ba-frame {
-  height: 160px;
+  aspect-ratio: 1 / 1;
   border-radius: var(--r);
   display: flex;
   flex-direction: column;
@@ -572,19 +617,27 @@ img { display: block; max-width: 100%; }
   justify-content: center;
   gap: 6px;
   overflow: hidden;
+  position: relative;
+}
+
+.ba-frame img {
+  object-position: top center;
 }
 
 .ba-emoji { font-size: 40px; }
 
 .ba-label {
+  position: absolute;
+  bottom: 8px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: rgba(0,0,0,0.45);
-  background: rgba(255,255,255,0.55);
+  color: rgba(0,0,0,0.55);
+  background: rgba(255,255,255,0.75);
   padding: 3px 10px;
   border-radius: 20px;
+  backdrop-filter: blur(4px);
 }
 
 html[data-theme="dark"] .ba-label {
@@ -649,9 +702,23 @@ html[data-theme="dark"] .ba-label {
   padding: 12px var(--p);
   display: flex;
   align-items: center;
+  gap: 8px;
   justify-content: space-between;
   border-bottom: 1px solid var(--sep);
   z-index: 10;
+}
+
+.sticky-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sticky-service-name {
@@ -667,6 +734,21 @@ html[data-theme="dark"] .ba-label {
 }
 
 /* Полоса дат */
+.dates-strip-wrap {
+  position: relative;
+}
+
+.dates-strip-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  background: linear-gradient(to left, var(--bg), transparent);
+  pointer-events: none;
+}
+
 .dates-strip {
   display: flex;
   gap: 8px;
@@ -692,7 +774,8 @@ html[data-theme="dark"] .ba-label {
   cursor: pointer;
   transition: background 180ms, color 180ms, transform 120ms;
   box-shadow: var(--shadow-sm);
-  min-height: 62px;
+  min-height: 72px;
+  touch-action: manipulation;
 }
 
 .date-btn .day-name {
@@ -708,10 +791,21 @@ html[data-theme="dark"] .ba-label {
   line-height: 1;
 }
 
+.date-btn .day-month {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.7;
+  text-transform: lowercase;
+}
+
 .date-btn.active {
   background: var(--accent);
   color: #fff;
   box-shadow: 0 4px 12px rgba(42, 171, 238, 0.35);
+}
+
+.date-btn.active .day-month {
+  opacity: 0.85;
 }
 
 .date-btn.disabled {
@@ -750,6 +844,7 @@ html[data-theme="dark"] .ba-label {
   color: var(--text);
   cursor: pointer;
   transition: border-color 180ms, background 180ms, color 180ms, transform 120ms;
+  touch-action: manipulation;
 }
 
 .slot-btn.selected {
@@ -777,6 +872,34 @@ html[data-theme="dark"] .ba-label {
   text-align: center;
   color: var(--text-hint);
   font-size: 14px;
+}
+
+.custom-time-block {
+  margin: 20px 0 8px;
+  text-align: center;
+}
+
+.custom-time-text {
+  font-size: 13px;
+  color: var(--text-hint);
+  margin-bottom: 8px;
+}
+
+.custom-time-btn {
+  background: none;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.custom-time-btn:active {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -983,6 +1106,14 @@ html[data-theme="dark"] .ba-label {
   color: var(--text-hint);
   text-align: center;
   margin-bottom: 20px;
+}
+
+.success-nav-hint {
+  font-size: 13px;
+  color: var(--text-hint);
+  text-align: center;
+  margin-top: 8px;
+  padding: 0 16px 24px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
