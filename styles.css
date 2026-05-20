@@ -144,7 +144,7 @@ img { display: block; max-width: 100%; }
 /* ─── Прокрутка ─── */
 .screen-content {
   padding: var(--p);
-  padding-bottom: calc(var(--p) + 20px);
+  padding-bottom: calc(var(--nav-h) + var(--safe-b) + var(--p) + 8px);
 }
 
 /* Экраны с MainButton — дополнительный отступ снизу под кнопку */
