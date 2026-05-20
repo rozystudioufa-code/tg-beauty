@@ -315,6 +315,16 @@ function renderHome(el) {
         <div class="review-author">— ${MASTER.review.author}</div>
       </div>
 
+      <button class="share-btn ripple" onclick="shareApp()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        Поделиться с подругой
+      </button>
+
     </div>
   `;
 }
@@ -1006,14 +1016,43 @@ function iconRuble() {
 // ═══════════════════════════════════════════════════════════════════════════
 // ЗАПУСК
 // ═══════════════════════════════════════════════════════════════════════════
-// ─── Оффер-модалка + инициализация ──────────────────────────────────────────
-const OFFER_KEY = 'tg_beauty_offer_shown';
+// ─── Онбординг + оффер + шаринг ─────────────────────────────────────────────
+const ONBOARD_KEY = 'tg_beauty_onboarded';
+const OFFER_KEY   = 'tg_beauty_offer_shown';
 
+// Онбординг — показываем один раз при первом визите
+function maybeShowOnboarding() {
+  if (localStorage.getItem(ONBOARD_KEY)) {
+    maybeShowOffer(); // уже онбордились — сразу проверяем оффер
+    return;
+  }
+  const modal = document.getElementById('onboard-modal');
+  if (!modal) return;
+  // Обращение по имени из Telegram
+  const firstName = tg?.initDataUnsafe?.user?.first_name;
+  const nameEl = modal.querySelector('.onboard-name');
+  if (nameEl) nameEl.textContent = firstName ? `Привет, ${firstName}!` : 'Привет!';
+  modal.style.display = 'flex';
+}
+
+function closeOnboarding() {
+  localStorage.setItem(ONBOARD_KEY, '1');
+  const modal = document.getElementById('onboard-modal');
+  if (!modal) return;
+  modal.style.transition = 'opacity 220ms ease';
+  modal.style.opacity = '0';
+  setTimeout(() => {
+    modal.style.display = 'none';
+    setTimeout(maybeShowOffer, 1000); // оффер — через 1 сек после закрытия
+  }, 220);
+}
+
+// Оффер — показываем один раз после онбординга
 function maybeShowOffer() {
   if (localStorage.getItem(OFFER_KEY)) return;
   const modal = document.getElementById('offer-modal');
   if (!modal) return;
-  setTimeout(() => { modal.style.display = 'flex'; }, 800);
+  setTimeout(() => { modal.style.display = 'flex'; }, 600);
 }
 
 function closeOffer() {
@@ -1025,7 +1064,20 @@ function closeOffer() {
   setTimeout(() => { modal.style.display = 'none'; }, 200);
 }
 
+// Поделиться с подругой
+function shareApp() {
+  const url  = 'https://t.me/lashmaster_ufa_bot';
+  const text = 'Записываюсь на наращивание ресниц здесь — рекомендую! 💜';
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  if (inTelegram) {
+    tg.openTelegramLink(shareUrl);
+  } else {
+    window.open(shareUrl, '_blank');
+  }
+  if (inTelegram && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
-  maybeShowOffer();
+  maybeShowOnboarding();
 });
