@@ -59,6 +59,7 @@ bot_username     TEXT                          -- @имя_бота (кэш по�
 webhook_set      BOOLEAN DEFAULT false
 subscription_tier TEXT DEFAULT 'free'          -- 'free' | 'pro'
 subscription_expires_at TIMESTAMPTZ
+downgrade_warning_sent_at TIMESTAMPTZ         -- когда последний раз слали предупреждение об истечении
 theme_accent     TEXT DEFAULT '#2aabee'        -- разблокируется в pro
 theme_bg         TEXT DEFAULT '#f2f2f7'
 created_at       TIMESTAMPTZ DEFAULT now()
@@ -168,8 +169,12 @@ Authorization: Bearer <JWT>
 
 JWT содержит: `{ telegram_id, name, is_master, master_id?, exp }`
 
+**Схема токенов:**
+- **Access token** — живёт **1 час** (`JWT_ACCESS_EXPIRES_IN=1h`). Передаётся в каждом запросе.
+- **Refresh token** — живёт **30 дней**, хранится в Redis: ключ `refresh:{token_hash}` → значение `{telegram_id, master_id}` с TTL 30d. Клиент хранит его в `localStorage` Mini App.
+
 #### `POST /auth/validate`
-Вход через Telegram Mini App. Принимает `initData` строку, валидирует HMAC с токеном **платформенного** бота (отдельный бот-регистратор), возвращает JWT.
+Вход через Telegram Mini App. Принимает `initData` строку, валидирует HMAC с токеном **платформенного** бота (отдельный бот-регистратор), возвращает оба токена.
 
 ```json
 // Request
@@ -177,13 +182,41 @@ JWT содержит: `{ telegram_id, name, is_master, master_id?, exp }`
 
 // Response
 {
-  "token": "eyJhbGc...",
+  "access_token": "eyJhbGc...",
+  "refresh_token": "opaque-random-64-hex-chars",
   "is_master": false,
   "master_id": null
 }
 ```
 
 > Валидация HMAC обязательна на сервере. `initDataUnsafe` на клиенте не доверяем.
+
+#### `POST /auth/refresh`
+Обновление access_token без повторного открытия Mini App. Используется, когда сервер вернул `401 Unauthorized`.
+
+```json
+// Request
+{ "refresh_token": "opaque-random-64-hex-chars" }
+
+// Response
+{
+  "access_token": "eyJhbGc...",
+  "refresh_token": "opaque-random-64-hex-chars"  // новый (rotation)
+}
+```
+
+Логика: сервер находит `refresh:{sha256(token)}` в Redis → извлекает `telegram_id` → выдаёт новый access_token и **ротирует** refresh_token (старый удаляет, записывает новый). Если ключа нет в Redis → `401`, клиент перелогинивается через `initData`.
+
+#### `POST /auth/logout`
+Явный выход: удаляет `refresh:{token_hash}` из Redis. После этого дождавшийся истечения access_token больше не сможет обновиться.
+
+```json
+// Request
+{ "refresh_token": "opaque-random-64-hex-chars" }
+// Response: 200 OK
+```
+
+> **Правило реализации:** при удалении мастера или бане — вызывать `DEL refresh:*` по паттерну `telegram_id` из Redis (сканировать хэш-сет `user_refresh_tokens:{telegram_id}`, который ведём параллельно).
 
 ---
 
@@ -292,7 +325,28 @@ JWT содержит: `{ telegram_id, name, is_master, master_id?, exp }`
 }
 ```
 
-Логика: слот `X` заблокирован если существует booking с `booked_date = date` и `booked_slot <= X < booked_slot + duration_minutes`.
+**Логика блокировки слотов — двусторонняя проверка overlap:**
+
+Слот `X` (для услуги длительностью `D` минут) считается заблокированным, если он пересекается с **любой** существующей записью на эту дату. Перекрытие двух временных отрезков `[A, A+durA)` и `[B, B+durB)` проверяется условием:
+```
+A < B + durB  AND  B < A + durA
+```
+
+В SQL (PostgreSQL):
+```sql
+-- Запрос на занятые слоты с учётом длительности новой услуги
+SELECT booked_slot
+FROM bookings
+WHERE master_id = $1
+  AND booked_date = $2
+  AND status = 'upcoming'
+  AND booked_slot < ($new_slot + ($new_duration_min || ' minutes')::interval)::time
+  AND (booked_slot + (duration_minutes || ' minutes')::interval)::time > $new_slot;
+```
+
+> **Важно:** `duration_minutes` — это `INTEGER`, `booked_slot` — это `TIME`. Прибавлять минуты к TIME нужно через `::interval`, иначе ошибка типов в PostgreSQL. Никогда не писать `booked_slot + duration_minutes` напрямую.
+
+Ответ эндпоинта возвращает только стартовые слоты из расписания мастера. Для каждого слота из `weekday_slots` / `weekend_slots` проверяем, не перекроется ли он с существующими записями (с учётом запрашиваемой длительности).
 
 #### `GET /masters/:masterId/slots/next`
 Ближайший свободный слот в следующие 14 дней.
@@ -324,7 +378,7 @@ Idempotency-Key: <UUID генерирует клиент>
   "comment": "Аллергия на клей N"
 }
 
-// Response
+// Response 201
 {
   "booking_id": "uuid",
   "status": "upcoming",
@@ -333,9 +387,38 @@ Idempotency-Key: <UUID генерирует клиент>
   "slot": "09:00",
   "address": "г. Уфа, ул. Жукова, д. 10, бутик 2172"
 }
+
+// Response 409 — слот занят (кто-то успел раньше)
+{ "error": "slot_taken", "message": "Этот слот уже занят, выберите другое время" }
 ```
 
-После создания сервер немедленно:
+**Критически важно — атомарная проверка и создание в одной транзакции:**
+
+```
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+  -- 1. Блокируем строки конкурирующих записей на этот день
+  SELECT id FROM bookings
+  WHERE master_id = $masterId
+    AND booked_date = $date
+    AND status = 'upcoming'
+  FOR UPDATE;
+
+  -- 2. Проверяем overlap (см. формулу в разделе Slots)
+  IF overlap_exists THEN
+    ROLLBACK;
+    RETURN 409 Conflict;
+  END IF;
+
+  -- 3. Вставляем запись
+  INSERT INTO bookings (...) VALUES (...);
+
+COMMIT;
+```
+
+> Без `FOR UPDATE` возможна race condition: два клиента одновременно видят слот свободным, оба проходят проверку, оба вставляют запись → двойное бронирование. `idempotency_key` защищает только от одного клиента, но не от двух разных.
+
+После создания (вне транзакции) сервер немедленно:
 1. Отправляет клиенту подтверждение через бота мастера
 2. Отправляет мастеру уведомление через его бота
 3. Ставит в очередь напоминания за 24ч и за 2ч
@@ -431,11 +514,39 @@ Telegram присылает `pre_checkout_query` и `successful_payment`. Пос
 ### `reminder-2h` queue
 Аналогично, delayed job на `booking_date - 2h`.
 
-### `subscription-check` cron (ежедневно в 08:00)
-Проверяет истёкшие подписки. Если `expires_at < now()`:
-1. `subscription_tier = 'free'`
-2. Если у мастера > 5 активных услуг — деактивирует лишние (по `sort_order DESC`)
-3. Отправляет предупреждение за 3 дня до истечения
+### `subscription-expiry-warn` cron (ежедневно в 08:00)
+Предупреждает мастеров об истечении подписки. Условия запуска:
+```
+expires_at IS NOT NULL
+AND expires_at > now()                          -- ещё не истекла
+AND expires_at <= now() + INTERVAL '3 days'    -- истекает в ближайшие 3 дня
+AND (
+  downgrade_warning_sent_at IS NULL
+  OR downgrade_warning_sent_at < now() - INTERVAL '23 hours'  -- не слали сегодня
+)
+```
+Действие:
+1. Отправляет мастеру через бота: «Ваша подписка Pro истекает DD.MM.YYYY. Продлите, чтобы не потерять услуги X, Y, Z.»
+2. Обновляет `downgrade_warning_sent_at = now()` в `masters`
+
+### `subscription-downgrade` cron (ежедневно в 09:00, через час после warn)
+Обрабатывает истёкшие подписки. Условие: `subscription_expires_at < now() AND subscription_tier = 'pro'`.
+
+Для каждого такого мастера:
+1. Получить список активных услуг, отсортированных `ORDER BY sort_order ASC` (низкий sort_order = важные, останутся)
+2. Если услуг > 5:
+   - Первые 5 (с наименьшим `sort_order`) остаются активными
+   - Остальные: `is_active = false`
+   - Собрать список деактивированных имён для уведомления
+3. Установить `subscription_tier = 'free'`, `subscription_expires_at = NULL`
+4. Отправить мастеру через бота:
+   ```
+   Ваша подписка Pro истекла. Аккаунт переведён на Free.
+   Скрытые услуги: [X, Y, Z] — зайдите в настройки, чтобы выбрать 5 активных.
+   Продлить подписку: [ссылка]
+   ```
+
+> **Почему два отдельных крона:** если объединить — мастер получает предупреждение и даунгрейд одновременно в день истечения, что непонятно и пугает. Разделение даёт 3 дня на реакцию.
 
 ### `post-visit-share` queue
 Через 2 часа после завершённого визита (`status = 'completed'`):
@@ -450,10 +561,42 @@ Telegram присылает `pre_checkout_query` и `successful_payment`. Пос
 | Поддельный `initData` | HMAC-валидация на сервере с токеном бота |
 | Чужие записи | Все booking-запросы проверяют `client_telegram_id === JWT.telegram_id` |
 | Чужие данные мастера | Все master-запросы проверяют `master.telegram_id === JWT.telegram_id` |
-| Двойная запись | `idempotency_key UNIQUE` в БД |
+| Двойная запись одним клиентом | `idempotency_key UNIQUE` в БД |
+| Race condition двух клиентов на один слот | `SELECT FOR UPDATE` в транзакции при создании записи → `409 Conflict` |
 | Переполнение услуг | Счётчик на `POST /master/services` до инсерта |
 | Открытый токен бота | Хранится зашифрованным (AES-256), расшифровывается только при webhook |
 | XSS в комментариях | Все user-input через `DOMTextContent`, не `innerHTML` |
+| DoS через бронирования | Rate limit: 5 `POST /bookings` в час на `client_telegram_id` |
+| Спам валидации initData | Rate limit: 10 запросов в минуту на IP для `POST /auth/validate` |
+| Исчерпание хранилища фото | Rate limit: 20 загрузок в час на мастера; проверка размера файла до загрузки в R2 |
+| Перебор чужих bot-токенов | Rate limit: 3 `POST /master/register` в час на IP |
+| Компрометация access_token | Короткий TTL (1ч) + refresh rotation в Redis |
+
+### Rate limiting — реализация
+
+Плагин: `@fastify/rate-limit` с Redis-store (тот же Redis что для BullMQ).
+
+```ts
+// Пример регистрации в Fastify
+fastify.register(require('@fastify/rate-limit'), {
+  global: false,  // не глобально — настраиваем на каждом роуте отдельно
+  redis: redisClient,
+});
+
+// На роуте POST /auth/validate:
+{ config: { rateLimit: { max: 10, timeWindow: '1 minute', keyGenerator: (req) => req.ip } } }
+
+// На роуте POST /masters/:masterId/bookings:
+{ config: { rateLimit: { max: 5, timeWindow: '1 hour', keyGenerator: (req) => req.user.telegram_id } } }
+
+// На роуте POST /master/photos:
+{ config: { rateLimit: { max: 20, timeWindow: '1 hour', keyGenerator: (req) => req.user.telegram_id } } }
+
+// На роуте POST /master/register:
+{ config: { rateLimit: { max: 3, timeWindow: '1 hour', keyGenerator: (req) => req.ip } } }
+```
+
+При превышении лимита возвращать `429 Too Many Requests` с заголовком `Retry-After`.
 
 ---
 
@@ -538,22 +681,24 @@ PRO_DURATION_DAYS=30
 
 # JWT
 JWT_SECRET=...
-JWT_EXPIRES_IN=7d
+JWT_ACCESS_EXPIRES_IN=1h          # access token — короткий
+REFRESH_TOKEN_TTL_DAYS=30         # refresh token хранится в Redis с этим TTL
 ```
 
 ---
 
 ## Порядок разработки
 
-1. **БД и миграции** — Prisma schema, все таблицы
-2. **Auth** — POST /auth/validate, HMAC-валидация, JWT
-3. **Master CRUD** — регистрация, профиль, токен бота, webhook
-4. **Services CRUD** — с лимитом free
-5. **Slots API** — getAvailableSlots на сервере (перенести логику из data.js)
-6. **Bookings** — создание с idempotency, отмена, список
-7. **Notifications** — BullMQ очереди, отправка через Grammy
-8. **Photos** — загрузка в R2, привязка к услуге
-9. **Subscription** — Stars инвойс, webhook, активация
-10. **Master panel в Mini App** — переключение режима, формы редактирования
-11. **Theme** — применение цветов из `/master/:id` в CSS-переменные
-12. **Тестирование** — TESTING.md обновить под API-режим
+1. **БД и миграции** — Prisma schema, все таблицы (включая `downgrade_warning_sent_at` в masters)
+2. **Auth** — `POST /auth/validate` (HMAC + JWT access 1ч), `POST /auth/refresh` (Redis refresh rotation), `POST /auth/logout` (удаление из Redis)
+3. **Rate limiting** — подключить `@fastify/rate-limit` с Redis-store; навесить лимиты на `/auth/validate`, `/bookings`, `/photos`, `/master/register` согласно таблице безопасности
+4. **Master CRUD** — регистрация, профиль, токен бота, webhook
+5. **Services CRUD** — с лимитом free
+6. **Slots API** — `getAvailableSlots` на сервере с двусторонней overlap-формулой и корректным SQL `::interval` кастом
+7. **Bookings** — создание в транзакции `SERIALIZABLE` с `SELECT FOR UPDATE` → `409` при конфликте, idempotency, отмена, список
+8. **Notifications** — BullMQ очереди (reminder-24h, reminder-2h, post-visit-share), отправка через Grammy
+9. **Photos** — загрузка в R2, валидация типа и размера файла до отправки в R2, привязка к услуге
+10. **Subscription** — Stars инвойс, webhook, активация; два отдельных крона (`subscription-expiry-warn` в 08:00 и `subscription-downgrade` в 09:00)
+11. **Master panel в Mini App** — переключение режима, формы редактирования
+12. **Theme** — применение цветов из `/master/:id` в CSS-переменные
+13. **Тестирование** — TESTING.md обновить под API-режим; отдельно тестировать race condition (два параллельных запроса на один слот)
