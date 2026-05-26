@@ -1,0 +1,33 @@
+{
+  "name": "tg-beauty-backend",
+  "version": "1.0.0",
+  "description": "Backend для SaaS-платформы бьюти-мастеров",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "Разиля Сунгатова",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@supabase/supabase-js": "^2.106.2",
+    "bullmq": "^5.77.3",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "grammy": "^1.43.0",
+    "ioredis": "^5.10.1",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.9.1",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
