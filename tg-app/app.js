@@ -5,14 +5,19 @@
 
 // ─── Глобальное состояние ────────────────────────────────────────────────────
 const state = {
-  stack:   ['home'],   // стек экранов навигации
-  tab:     'home',     // активная вкладка
-  booking: {           // данные текущей записи (сбрасывается при новой)
-    service:  null,    // объект услуги
-    date:     null,    // выбранная дата (Date)
-    slot:     null,    // выбранное время (string "HH:MM")
+  stack:   ['home'],
+  tab:     'home',
+  booking: {
+    service:  null,
+    date:     null,
+    slot:     null,
     comment:  '',
   },
+  // API-данные (null = ещё не загружены или API недоступен)
+  master:     null,   // данные мастера из API
+  services:   null,   // услуги из API
+  isMaster:   false,  // текущий пользователь — мастер
+  masterApiId: null,  // master_id из JWT
 };
 
 // ─── Ссылка на Telegram WebApp ───────────────────────────────────────────────
@@ -22,7 +27,7 @@ const inTelegram = !!(tg?.initData);
 // ═══════════════════════════════════════════════════════════════════════════
 // ИНИЦИАЛИЗАЦИЯ
 // ═══════════════════════════════════════════════════════════════════════════
-function initApp() {
+async function initApp() {
   if (tg) {
     tg.ready();
     tg.expand();
@@ -31,11 +36,16 @@ function initApp() {
     setupMainButton();
     setupThemeChangeListener();
   } else {
-    // Браузерный режим (разработка): тёмная тема по медиазапросу
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
   }
+
+  // Авторизуемся и загружаем данные из API (если API_URL задан)
+  await initApi();
+  const [master, services] = await Promise.all([apiGetMaster(), apiGetServices()]);
+  if (master)   state.master   = master;
+  if (services) state.services = services;
 
   renderScreen('home');
   renderScreen('catalog');
@@ -374,7 +384,8 @@ function renderCatalog(el, activeCat = 'all') {
 // ЭКРАН 3: ДЕТАЛИ УСЛУГИ
 // ───────────────────────────────────────────────────────────────────────────
 function openDetail(serviceId) {
-  const s = SERVICES.find(x => x.id === serviceId);
+  const list = state.services || SERVICES;
+  const s = list.find(x => x.id == serviceId); // == чтобы работало и с UUID и с числом
   if (!s) return;
   state.booking.service = s;
   navigateTo('detail');
@@ -663,30 +674,42 @@ function renderConfirm(el) {
   showMainButton(btnLabel, handleConfirmBooking);
 }
 
-function handleConfirmBooking() {
+async function handleConfirmBooking() {
   if (tg?.MainButton) {
     tg.MainButton.setText('Обрабатываем...');
     tg.MainButton.showProgress(false);
     tg.MainButton.disable();
   }
 
-  // Сохраняем запись в localStorage
   const { service: s, date, slot, comment } = state.booking;
-  saveBooking({
-    serviceName:     s.name,
-    serviceId:       s.id,
-    price:           s.price,
-    deposit:         s.deposit,
-    duration:        s.durationLabel,
-    durationMinutes: s.duration,
-    date:            date.toISOString(),
+  const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
+
+  // Пробуем сохранить через API
+  const apiResult = await apiCreateBooking({
+    service_id: s.id,
+    date:       dateStr,
     slot,
-    comment,
-    address:         MASTER.addressFull,
-    status:          'upcoming',
+    comment:    comment || '',
   });
 
-  // Симулируем небольшую задержку «обработки»
+  if (!apiResult) {
+    // Fallback: сохраняем локально (API недоступен)
+    const master = state.master || MASTER;
+    saveBooking({
+      serviceName:     s.name,
+      serviceId:       s.id,
+      price:           s.price,
+      deposit:         s.deposit || 0,
+      duration:        s.durationLabel,
+      durationMinutes: s.duration,
+      date:            date instanceof Date ? date.toISOString() : date,
+      slot,
+      comment,
+      address:         master.addressFull || master.address_full || '',
+      status:          'upcoming',
+    });
+  }
+
   setTimeout(() => {
     if (tg?.disableClosingConfirmation) tg.disableClosingConfirmation();
     navigateTo('success');
@@ -795,11 +818,13 @@ function shareBooking() {
 // ───────────────────────────────────────────────────────────────────────────
 // ЭКРАН 7: МОИ ЗАПИСИ
 // ───────────────────────────────────────────────────────────────────────────
-function renderBookings(el) {
-  const all      = loadBookings();
-  const now      = new Date();
-  const upcoming = all.filter(b => new Date(b.date) > now);
-  const past     = all.filter(b => new Date(b.date) <= now);
+async function renderBookings(el) {
+  // Пробуем загрузить из API, fallback на localStorage
+  const apiBookings = await apiGetClientBookings();
+  const all         = apiBookings || loadBookings();
+  const now         = new Date();
+  const upcoming    = all.filter(b => new Date(b.date) > now);
+  const past        = all.filter(b => new Date(b.date) <= now);
 
   el.innerHTML = `
     <div class="page-title">Мои записи</div>
