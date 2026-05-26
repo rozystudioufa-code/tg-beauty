@@ -8,6 +8,8 @@ dotenv.config({ path: '../.env' });
 import { authRoutes } from './routes/auth';
 import { masterRoutes } from './routes/masters';
 import { serviceRoutes } from './routes/services';
+import { slotRoutes } from './routes/slots';
+import { bookingRoutes } from './routes/bookings';
 
 const app = Fastify({ logger: true });
 
@@ -19,6 +21,8 @@ const start = async () => {
   await app.register(authRoutes, { prefix: '/v1' });
   await app.register(masterRoutes, { prefix: '/v1' });
   await app.register(serviceRoutes, { prefix: '/v1' });
+  await app.register(slotRoutes, { prefix: '/v1' });
+  await app.register(bookingRoutes, { prefix: '/v1' });
 
   // Проверка работоспособности
   app.get('/health', async () => ({
