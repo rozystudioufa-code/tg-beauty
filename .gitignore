@@ -4,5 +4,8 @@
 # Зависимости
 node_modules/
 
+# Скомпилированный TypeScript
+dist/
+
 # Системные файлы macOS
 .DS_Store
