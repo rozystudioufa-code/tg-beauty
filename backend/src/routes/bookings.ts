@@ -48,10 +48,10 @@ export async function bookingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: 'Услуга не найдена или недоступна' });
       }
 
-      // Получаем адрес мастера
+      // Получаем данные мастера
       const { data: master } = await supabase
         .from('masters')
-        .select('address_full')
+        .select('address_full, telegram_id, bot_token')
         .eq('id', masterId)
         .maybeSingle();
 
@@ -87,6 +87,26 @@ export async function bookingRoutes(app: FastifyInstance) {
       }
 
       log.bookingCreated(result.booking_id, telegram_id, `${date} ${slot}`);
+
+      // Уведомление мастеру в Telegram
+      if (result.status !== 'existing' && master?.bot_token && master?.telegram_id) {
+        const dateFormatted = new Date(date).toLocaleDateString('ru-RU', {
+          day: 'numeric', month: 'long', weekday: 'short',
+        });
+        const msg =
+          `📅 Новая запись!\n\n` +
+          `👤 Клиент: ${name}\n` +
+          `💅 Услуга: ${service.name}\n` +
+          `🕐 Дата: ${dateFormatted}, ${slot}\n` +
+          `⏱ Длительность: ${service.duration_label}\n` +
+          `💰 Стоимость: ${service.price} ₽`;
+        fetch(`https://api.telegram.org/bot${master.bot_token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: master.telegram_id, text: msg }),
+        }).catch(() => {});
+      }
+
       return reply.code(result.status === 'existing' ? 200 : 201).send({
         booking_id:   result.booking_id,
         status:       'upcoming',
