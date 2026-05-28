@@ -11,8 +11,34 @@ import { serviceRoutes } from './routes/services';
 import { slotRoutes } from './routes/slots';
 import { bookingRoutes } from './routes/bookings';
 import { webhookRoutes } from './routes/webhook';
+import { log } from './services/logger';
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: false }); // логи пишем через log.*
+
+// ── Глобальный хук: логируем все 5xx ошибки ──────────────────────────────────
+app.addHook('onError', (_request, _reply, error, done) => {
+  log.error('SERVER', `Необработанная ошибка: ${error.message}`, error.stack);
+  done();
+});
+
+// ── Глобальный хук: логируем медленные запросы (> 3 сек) ─────────────────────
+app.addHook('onResponse', (request, reply, done) => {
+  const ms = Math.round(reply.elapsedTime);
+  if (ms > 3000) {
+    log.warn('PERF', `Медленный запрос ${request.method} ${request.url} — ${ms}ms`);
+  }
+  done();
+});
+
+// ── Перехватываем необработанные исключения ───────────────────────────────────
+process.on('uncaughtException', (err) => {
+  log.serverCrash(err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  log.error('SERVER', 'Unhandled Promise rejection', reason);
+});
 
 const start = async () => {
   await app.register(cors, { origin: '*' });
@@ -34,9 +60,9 @@ const start = async () => {
 
   try {
     await app.listen({ port: 3000, host: '0.0.0.0' });
-    console.log('Сервер запущен на порту 3000');
+    log.serverStarted(3000);
   } catch (err) {
-    app.log.error(err);
+    log.serverCrash(err);
     process.exit(1);
   }
 };

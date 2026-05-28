@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { supabase } from '../supabase';
 import { requireAuth } from '../middleware/auth';
+import { log } from '../services/logger';
 
 export async function bookingRoutes(app: FastifyInstance) {
 
@@ -73,16 +74,19 @@ export async function bookingRoutes(app: FastifyInstance) {
       });
 
       if (error) {
+        log.bookingError(error);
         return reply.code(500).send({ error: 'Ошибка создания записи' });
       }
 
       if (result.error === 'slot_taken') {
+        log.bookingSlotTaken(masterId, date, slot);
         return reply.code(409).send({
           error: 'slot_taken',
           message: 'Этот слот уже занят, выберите другое время',
         });
       }
 
+      log.bookingCreated(result.booking_id, telegram_id, `${date} ${slot}`);
       return reply.code(result.status === 'existing' ? 200 : 201).send({
         booking_id:   result.booking_id,
         status:       'upcoming',

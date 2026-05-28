@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { validateInitData } from '../services/telegram';
 import { signAccessToken } from '../services/jwt';
 import { supabase } from '../supabase';
+import { log } from '../services/logger';
 
 export async function authRoutes(app: FastifyInstance) {
   // POST /auth/validate — вход через Telegram initData
@@ -27,6 +28,7 @@ export async function authRoutes(app: FastifyInstance) {
       // Проверяем подпись Telegram
       const result = validateInitData(init_data, botToken);
       if (!result.valid || !result.user) {
+        log.authFail('Неверная подпись Telegram', request.ip);
         return reply.code(401).send({ error: 'Неверная подпись Telegram' });
       }
 
@@ -48,6 +50,7 @@ export async function authRoutes(app: FastifyInstance) {
         master_id: master?.id,
       });
 
+      log.authOk(user.id, isMaster);
       return reply.code(200).send({
         access_token,
         is_master: isMaster,
