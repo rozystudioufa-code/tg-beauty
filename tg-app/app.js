@@ -874,12 +874,12 @@ function bookingItemHTML(b, isUpcoming) {
       ${isUpcoming ? `
         <button class="btn btn-danger btn-sm"
                 data-cancel-id="${b.id}"
-                onclick="handleCancelBooking(${b.id}, this)">
+                onclick="handleCancelBooking('${b.id}', this)">
           Отменить запись
         </button>
       ` : `
         <button class="btn btn-secondary btn-sm"
-                onclick="rebookService(${b.serviceId})">
+                onclick="rebookService('${b.serviceId}')">
           Записаться снова
         </button>
       `}
@@ -887,7 +887,7 @@ function bookingItemHTML(b, isUpcoming) {
   `;
 }
 
-function handleCancelBooking(id, btn) {
+async function handleCancelBooking(id, btn) {
   if (inTelegram && tg.showPopup) {
     tg.showPopup({
       title:   'Отменить запись?',
@@ -896,8 +896,9 @@ function handleCancelBooking(id, btn) {
         { id: 'cancel', type: 'destructive', text: 'Отменить запись' },
         { id: 'keep',   type: 'default',     text: 'Оставить' },
       ],
-    }, (btnId) => {
+    }, async (btnId) => {
       if (btnId === 'cancel') {
+        await apiCancelBooking(id);
         cancelBooking(id);
         renderBookings(document.getElementById('screen-bookings'));
       }
@@ -910,6 +911,7 @@ function handleCancelBooking(id, btn) {
   if (!btn) return;
 
   if (btn.dataset.confirm === '1') {
+    await apiCancelBooking(id);
     cancelBooking(id);
     renderBookings(document.getElementById('screen-bookings'));
   } else {
@@ -929,7 +931,7 @@ function handleCancelBooking(id, btn) {
 }
 
 function rebookService(serviceId) {
-  const s = SERVICES.find(x => x.id === serviceId);
+  const s = (state.services || SERVICES).find(x => x.id == serviceId);
   if (!s) return;
   state.booking.service = s;
   state.booking.date    = null;
