@@ -118,6 +118,7 @@ function normalizeMaster(m) {
 function normalizeBooking(b) {
   return {
     id:          b.id,
+    serviceId:   b.service_id,
     serviceName: b.service_name,
     price:       b.price,
     duration:    b.duration_label,

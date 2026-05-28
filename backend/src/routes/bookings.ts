@@ -130,7 +130,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       const { data, error } = await supabase
         .from('bookings')
         .select(`
-          id, service_name, price, duration_label,
+          id, service_id, service_name, price, duration_label,
           booked_date, booked_slot, comment, address, status,
           cancelled_at, created_at
         `)
