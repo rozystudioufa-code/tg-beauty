@@ -313,7 +313,7 @@ function renderHome(el) {
         ${SERVICES.map(s => `
           <div class="work-thumb ripple"
                style="background:linear-gradient(135deg,${s.gradientFrom},${s.gradientTo})"
-               onclick="openDetail(${s.id})">
+               onclick="openDetail('${s.id}')">
             <span class="work-emoji">${s.emoji}</span>
             <div class="work-name">${s.name}</div>
           </div>
@@ -343,9 +343,10 @@ function renderHome(el) {
 // ЭКРАН 2: КАТАЛОГ УСЛУГ
 // ───────────────────────────────────────────────────────────────────────────
 function renderCatalog(el, activeCat = 'all') {
+  const allServices = state.services || SERVICES;
   const filtered = activeCat === 'all'
-    ? SERVICES
-    : SERVICES.filter(s => s.category === activeCat);
+    ? allServices
+    : allServices.filter(s => s.category === activeCat);
 
   el.innerHTML = `
     <div class="page-title">Услуги</div>
@@ -361,7 +362,7 @@ function renderCatalog(el, activeCat = 'all') {
 
     <div class="services-list">
       ${filtered.map(s => `
-        <div class="service-card ripple" onclick="openDetail(${s.id})">
+        <div class="service-card ripple" onclick="openDetail('${s.id}')">
           <div class="service-card-thumb"
                style="background:linear-gradient(135deg,${s.gradientFrom},${s.gradientTo})">
             <span class="service-card-emoji">${s.emoji}</span>
