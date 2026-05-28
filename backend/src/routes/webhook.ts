@@ -113,6 +113,40 @@ export async function webhookRoutes(app: FastifyInstance) {
         return reply.code(200).send({ ok: true });
       }
 
+      // /moizapisi — список записей мастера
+      if (text === '/moizapisi' && isMaster) {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: bookings } = await supabase
+          .from('bookings')
+          .select('client_name, service_name, booked_date, booked_slot, duration_label, price')
+          .eq('master_id', masterId)
+          .eq('status', 'upcoming')
+          .gte('booked_date', today)
+          .order('booked_date', { ascending: true })
+          .order('booked_slot', { ascending: true })
+          .limit(20);
+
+        if (!bookings || bookings.length === 0) {
+          await sendMessage(token, chatId, '📭 Предстоящих записей нет.');
+        } else {
+          let currentDate = '';
+          const lines: string[] = ['📋 Ваши предстоящие записи:\n'];
+          for (const b of bookings) {
+            const dateLabel = new Date(b.booked_date).toLocaleDateString('ru-RU', {
+              weekday: 'short', day: 'numeric', month: 'long',
+            });
+            if (dateLabel !== currentDate) {
+              currentDate = dateLabel;
+              lines.push(`\n📅 ${dateLabel}`);
+            }
+            lines.push(`  🕐 ${b.booked_slot} — ${b.client_name}`);
+            lines.push(`     ${b.service_name} · ${b.duration_label} · ${b.price} ₽`);
+          }
+          await sendMessage(token, chatId, lines.join('\n'));
+        }
+        return reply.code(200).send({ ok: true });
+      }
+
       // /master — режим управления (только для самого мастера)
       if (text === '/master' && isMaster) {
         const appUrl = process.env.SERVER_URL?.replace('/v1', '') || `https://t.me/${master.bot_username}/app`;
