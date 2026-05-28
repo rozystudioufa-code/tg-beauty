@@ -5,8 +5,8 @@
 //   2. MASTER_ID = 'uuid из базы данных после регистрации мастера'
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_URL   = '';   // ← заполнить после деплоя на Railway
-const MASTER_ID = '';   // ← заполнить после POST /v1/master/register
+const API_URL   = 'https://beautybook24.ru';
+const MASTER_ID = '1f459c56-ccb6-44ef-af40-757444949708';
 
 // ─── Внутреннее состояние ────────────────────────────────────────────────────
 let _jwt      = localStorage.getItem('tg_beauty_jwt') || null;
