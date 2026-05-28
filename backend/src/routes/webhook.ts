@@ -51,7 +51,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       // /start — открыть Mini App
       if (text === '/start' || text.startsWith('/start ')) {
-        const appUrl = `https://t.me/${master.bot_username}/app`;
+        const appUrl = process.env.SERVER_URL?.replace('/v1', '') || `https://t.me/${master.bot_username}/app`;
 
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
@@ -115,7 +115,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       // /master — режим управления (только для самого мастера)
       if (text === '/master' && isMaster) {
-        const appUrl = `https://t.me/${master.bot_username}/app`;
+        const appUrl = process.env.SERVER_URL?.replace('/v1', '') || `https://t.me/${master.bot_username}/app`;
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
