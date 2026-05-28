@@ -824,9 +824,8 @@ async function renderBookings(el) {
   // Пробуем загрузить из API, fallback на localStorage
   const apiBookings = await apiGetClientBookings();
   const all         = apiBookings || loadBookings();
-  const now         = new Date();
-  const upcoming    = all.filter(b => new Date(b.date) > now);
-  const past        = all.filter(b => new Date(b.date) <= now);
+  const upcoming    = all.filter(b => b.status === 'upcoming');
+  const past        = all.filter(b => b.status !== 'upcoming');
 
   el.innerHTML = `
     <div class="page-title">Мои записи</div>
