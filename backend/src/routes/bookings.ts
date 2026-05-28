@@ -156,7 +156,7 @@ export async function bookingRoutes(app: FastifyInstance) {
 
       const { data: booking } = await supabase
         .from('bookings')
-        .select('id, client_telegram_id, status, master_id')
+        .select('id, client_telegram_id, client_name, status, master_id, service_name, booked_date, booked_slot')
         .eq('id', id)
         .maybeSingle();
 
@@ -176,6 +176,29 @@ export async function bookingRoutes(app: FastifyInstance) {
         .from('bookings')
         .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('id', id);
+
+      // Уведомление мастеру об отмене
+      const { data: master } = await supabase
+        .from('masters')
+        .select('bot_token, telegram_id')
+        .eq('id', booking.master_id)
+        .maybeSingle();
+
+      if (master?.bot_token && master?.telegram_id) {
+        const dateFormatted = new Date(booking.booked_date).toLocaleDateString('ru-RU', {
+          day: 'numeric', month: 'long', weekday: 'short',
+        });
+        const msg =
+          `❌ Запись отменена\n\n` +
+          `👤 Клиент: ${booking.client_name}\n` +
+          `💅 Услуга: ${booking.service_name}\n` +
+          `🕐 Была: ${dateFormatted}, ${booking.booked_slot?.slice(0, 5)}`;
+        fetch(`https://api.telegram.org/bot${master.bot_token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: master.telegram_id, text: msg }),
+        }).catch(() => {});
+      }
 
       return reply.code(200).send({ success: true });
     }
