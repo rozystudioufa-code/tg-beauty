@@ -310,7 +310,7 @@ function renderHome(el) {
 
       <div class="section-header">Работы</div>
       <div class="works-scroll">
-        ${SERVICES.map(s => `
+        ${(state.services || SERVICES).map(s => `
           <div class="work-thumb ripple"
                style="background:linear-gradient(135deg,${s.gradientFrom},${s.gradientTo})"
                onclick="openDetail('${s.id}')">
