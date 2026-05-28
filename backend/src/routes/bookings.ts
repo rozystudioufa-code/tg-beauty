@@ -168,6 +168,8 @@ export async function bookingRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: 'Нет доступа к этой записи' });
       }
 
+      log.info('DELETE_BOOKING', `Booking status: "${booking.status}" (type: ${typeof booking.status}), comparing with "upcoming"`);
+
       if (booking.status !== 'upcoming') {
         return reply.code(400).send({ error: 'Можно отменить только предстоящую запись' });
       }
