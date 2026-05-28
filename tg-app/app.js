@@ -102,6 +102,7 @@ function showMainButton(text, handler) {
   mainBtnHandler = handler;
   tg.MainButton.setText(text);
   tg.MainButton.onClick(mainBtnHandler);
+  tg.MainButton.hideProgress();
   tg.MainButton.enable();
   tg.MainButton.show();
 }
