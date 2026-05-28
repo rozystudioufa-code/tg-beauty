@@ -89,6 +89,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       log.bookingCreated(result.booking_id, telegram_id, `${date} ${slot}`);
 
       // Уведомление мастеру в Telegram
+      log.info('BOOKING', `Уведомление: status=${result.status} has_token=${!!master?.bot_token} has_tg=${!!master?.telegram_id}`);
       if (result.status !== 'existing' && master?.bot_token && master?.telegram_id) {
         const dateFormatted = new Date(date).toLocaleDateString('ru-RU', {
           day: 'numeric', month: 'long', weekday: 'short',
@@ -104,7 +105,7 @@ export async function bookingRoutes(app: FastifyInstance) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: master.telegram_id, text: msg }),
-        }).catch(() => {});
+        }).then(r => r.json()).then(r => log.info('BOOKING', `Уведомление отправлено: ${JSON.stringify(r)}`)).catch(e => log.error('BOOKING', 'Ошибка уведомления', e));
       }
 
       return reply.code(result.status === 'existing' ? 200 : 201).send({
